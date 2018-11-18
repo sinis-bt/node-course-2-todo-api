@@ -2,6 +2,7 @@ const _ = require('lodash');
 
 const express = require('express');
 const bodyParser = require('body-parser');
+const bycrypt = require('bcryptjs');
 
 const {ObjectId} = require('mongodb');
 
@@ -34,26 +35,21 @@ app.get('/todos', (req, res) => {
     })
 });
 
-
 app.get('/todos/:id', (req, res) => {
 
     var id = req.params.id;
     if(!ObjectId.isValid(id)){
        return res.status(404).send();
     }
-
-    Todo.findById(id).then((todo) => {
-        
+    Todo.findById(id).then((todo) => {        
         if(!todo){
            return res.status(404).send();
-        }
-        
+        }        
         res.send( {todo} );
     }).catch((e) => {
         res.status(404).send();
     });
 });
-
 
 app.delete('/todos/:id', (req, res) => {
 
@@ -70,12 +66,9 @@ app.delete('/todos/:id', (req, res) => {
         }
         res.send( {todo} );
 
-
     } ).catch((e) => {
         res.status(404).send();
     });
-
-
 });
 
 
@@ -123,13 +116,34 @@ app.post('/users', (req, res) => {
 
 });
 
-
-
-app.get('/users/me', authenticate, (req, res) => {
-    
+app.get('/users/me', authenticate, (req, res) => {    
     res.send(req.user);
 });
 
+// POST /users/login {email, password}
+app.post('/users/login', (req, res) => {
+
+    var body = _.pick(req.body, ['email', 'password']);
+    User.findByCredentials(body.email, body.password).then((user) => {
+        return user.generateAuthToken().then((token) => {
+            res.header('x-auth', token).send(user)
+        });
+    }).catch((e) => {
+        res.status(400).send();
+    });
+    var user = new User(body);
+});
+
+
+app.delete('/users/me/token', authenticate, (req, res) => {
+
+    req.user.removeToken(req.token).then(() => {
+        res.status(200).send();
+    }, () => {
+        res.status(400).send();
+    });
+
+});
 
 
 app.listen(3000, () => {
